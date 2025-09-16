@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NovaGPT</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        
+        .chat-container {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .message-bubble {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .searching-indicator {
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+        
+        .chat-messages {
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e0 transparent;
+        }
+        
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .chat-messages::-webkit-scrollbar-thumb {
+            background-color: #cbd5e0;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="chat-container">
+    <div class="flex flex-col h-screen max-w-4xl mx-auto">
+        <!-- Header -->
+        <div class="bg-white/10 backdrop-blur-sm border-b border-white/20 p-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                    <span class="text-white font-semibold text-lg">📖</span>
+                </div>
+                <div>
+                    <h1 class="text-white font-semibold text-lg">NovaGPT</h1>
+                    <p class="text-white/70 text-sm">Generate anything in lightspeed</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Messages -->
+        <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-4 chat-messages">
+            <div class="message-bubble flex items-start space-x-3">
+                <div class="w-8 h-8 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span class="text-white text-sm">📖</span>
+                </div>
+                <div class="bg-white/90 backdrop-blur-sm rounded-2xl rounded-tl-md p-4 max-w-xs lg:max-w-md shadow-lg">
+                    <p class="text-gray-800">Hello! I'm NovaGPT. How can I help you?</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="bg-white/10 backdrop-blur-sm border-t border-white/20 p-4">
+            <div class="flex items-center space-x-3">
+                <div class="flex-1 relative">
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        placeholder="Ask me about anything..." 
+                        class="w-full bg-white/90 backdrop-blur-sm rounded-full px-6 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-800 placeholder-gray-500"
+                        maxlength="500"
+                    >
+                    <button 
+                        id="sendButton" 
+                        class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-full w-8 h-8 flex items-center justify-center hover:from-blue-600 hover:to-purple-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    >
+                        <span class="text-sm">➤</span>
+                    </button>
+                </div>
+            </div>
+            <p class="text-white/60 text-xs mt-2 text-center">AI is experimental, and can make mistakes.</p>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+
+        function addMessage(content, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message-bubble flex items-start space-x-3';
+            
+            if (isUser) {
+                messageDiv.className += ' flex-row-reverse space-x-reverse';
+                messageDiv.innerHTML = `
+                    <div class="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span class="text-white text-sm">👤</span>
+                    </div>
+                    <div class="bg-gradient-to-r from-green-400 to-blue-500 rounded-2xl rounded-tr-md p-4 max-w-xs lg:max-w-md shadow-lg">
+                        <p class="text-white">${content}</p>
+                    </div>
+                `;
+            } else {
+                messageDiv.innerHTML = `
+                    <div class="w-8 h-8 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span class="text-white text-sm">📖</span>
+                    </div>
+                    <div class="bg-white/90 backdrop-blur-sm rounded-2xl rounded-tl-md p-4 max-w-xs lg:max-w-md shadow-lg">
+                        <div class="text-gray-800 whitespace-pre-line">${content}</div>
+                    </div>
+                `;
+            }
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function showSearchingIndicator() {
+            const searchDiv = document.createElement('div');
+            searchDiv.id = 'searchingIndicator';
+            searchDiv.className = 'message-bubble flex items-start space-x-3';
+            
+            const searchSteps = [
+                "Searching the web...",
+                "Finding data...",
+                "Analyzing information...",
+                "Done!"
+            ];
+            
+            let currentStep = 0;
+            
+            searchDiv.innerHTML = `
+                <div class="w-8 h-8 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span class="text-white text-sm">📖</span>
+                </div>
+                <div class="bg-white/90 backdrop-blur-sm rounded-2xl rounded-tl-md p-4 max-w-xs lg:max-w-md shadow-lg">
+                    <p id="searchStatus" class="text-gray-800 searching-indicator">${searchSteps[0]}</p>
+                </div>
+            `;
+            
+            chatMessages.appendChild(searchDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            const interval = setInterval(() => {
+                currentStep++;
+                if (currentStep < searchSteps.length) {
+                    const statusElement = document.getElementById('searchStatus');
+                    if (statusElement) {
+                        statusElement.textContent = searchSteps[currentStep];
+                    }
+                } else {
+                    clearInterval(interval);
+                }
+            }, 600);
+            
+            return interval;
+        }
+
+        function removeSearchingIndicator() {
+            const searchingIndicator = document.getElementById('searchingIndicator');
+            if (searchingIndicator) {
+                searchingIndicator.remove();
+            }
+        }
+
+        async function searchWikipedia(query) {
+            try {
+                const searchUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`;
+                const response = await fetch(searchUrl);
+                
+                if (!response.ok) {
+                    const searchApiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=1`;
+                    const searchResponse = await fetch(searchApiUrl);
+                    const searchData = await searchResponse.json();
+                    
+                    if (searchData.query.search.length > 0) {
+                        const pageTitle = searchData.query.search[0].title;
+                        const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle)}`;
+                        const summaryResponse = await fetch(summaryUrl);
+                        return await summaryResponse.json();
+                    } else {
+                        throw new Error('No results found');
+                    }
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('This message is for developers, and means an error has occured: ', error);
+                return null;
+            }
+        }
+
+        function extractTopic(userMessage) {
+            const lowerMessage = userMessage.toLowerCase().trim();
+            
+            let topic = lowerMessage
+                .replace(/^(what is|what are|tell me about|explain|describe|who is|who was|where is|when was|how does|how do|what's|whats|info about|information about|search for|look up|find|about)\s+/i, '')
+                .replace(/\?+$/g, '')
+                .replace(/^(a|an|the)\s+/i, '')
+                .trim();
+            
+            if (topic.length < 2) {
+                topic = userMessage.trim();
+            }
+            
+            return topic;
+        }
+
+        async function analyzeAndRespond(userMessage) {
+            const lowerMessage = userMessage.toLowerCase();
+            
+            if (lowerMessage === 'hello' || lowerMessage === 'hi' || lowerMessage === 'hey') {
+                return "Hello there! What would you like me to tell you about?";
+            } else if (lowerMessage === 'how are you' || lowerMessage === 'how do you do') {
+                return "I'm great! How may I assist you?";
+            } else if (lowerMessage.includes('thank') || lowerMessage.includes('thanks')) {
+                return "You're welcome! I enjoy helping people. Feel free to ask me to tell you about anything that interests you!";
+            } else if (lowerMessage.includes('bye') || lowerMessage.includes('goodbye') || lowerMessage.includes('see you') || lowerMessage.includes('cya')) {
+                return "Goodbye! It was great talking with you. Come back anytime you need help!";
+            }
+            
+            const now = new Date();
+            if (lowerMessage.includes('what year') || lowerMessage.includes('current year') || lowerMessage === 'year') {
+                return `The year is currently ${now.getFullYear()}.`;
+            } else if (lowerMessage.includes('what time') || lowerMessage.includes('current time') || lowerMessage === 'time') {
+                return `The time is ${now.toLocaleTimeString()}.`;
+            } else if (lowerMessage.includes('what date') || lowerMessage.includes('today') || lowerMessage.includes('current date') || lowerMessage === 'date') {
+                return `Today's date is ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
+            } else if (lowerMessage.includes('what day') || lowerMessage.includes('day of the week')) {
+                return `Today is ${now.toLocaleDateString('en-US', { weekday: 'long' })}.`;
+            }
+            
+            const mathMatch = lowerMessage.match(/what\s+is\s+(\d+(?:\.\d+)?)\s*([+\-*/])\s*(\d+(?:\.\d+)?)/);
+            if (mathMatch) {
+                const num1 = parseFloat(mathMatch[1]);
+                const operator = mathMatch[2];
+                const num2 = parseFloat(mathMatch[3]);
+                let result;
+                
+                switch (operator) {
+                    case '+': result = num1 + num2; break;
+                    case '-': result = num1 - num2; break;
+                    case '*': result = num1 * num2; break;
+                    case '/': result = num2 !== 0 ? num1 / num2 : 'undefined (division by zero)'; break;
+                }
+                
+                return `${num1} ${operator} ${num2} = ${result}`;
+            }
+    
+            const topic = extractTopic(userMessage);
+            
+            const wikiData = await searchWikipedia(topic);
+            
+            if (wikiData && wikiData.extract) {
+                return wikiData.extract;
+            } else {
+                return `I searched the web for "${topic}" but couldn't find any data on it.`;
+            }
+        }
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message === '') return;
+
+            addMessage(message, true);
+            messageInput.value = '';
+
+            const searchInterval = showSearchingIndicator();
+
+            try {
+                const response = await analyzeAndRespond(message);
+                
+                clearInterval(searchInterval);
+                removeSearchingIndicator();
+                
+                addMessage(response, false);
+            } catch (error) {
+                clearInterval(searchInterval);
+                removeSearchingIndicator();
+                addMessage("Sorry, I encountered an error while searching the web. Please check your internet connection.", false);
+            }
+        }
+        
+        sendButton.addEventListener('click', sendMessage);
+        
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        messageInput.focus();
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97fe27f5b102d9b4',t:'MTc1ODAwMjU1OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
